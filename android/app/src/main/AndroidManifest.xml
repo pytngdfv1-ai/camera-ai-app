@@ -1,23 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     
-    <!-- Permisos de cámara -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-feature android:name="android.hardware.camera.autofocus" />
     
-    <!-- Almacenamiento (Android 9 y anteriores) -->
-    <uses-permission 
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-    <uses-permission 
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-    
-    <!-- Medios (Android 13+) -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
-    
-    <!-- Internet (para futuras funciones) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
@@ -45,6 +35,11 @@
             </intent-filter>
         </activity>
         
+        <!-- ESTA LÍNEA ES LA QUE ACTIVA EL EMBEDDING V2 -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+            
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -54,9 +49,5 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-        
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
     </application>
 </manifest>
