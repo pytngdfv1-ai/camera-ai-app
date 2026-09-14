@@ -24,8 +24,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.example.camera_ai_app"
-    // ✅ CORREGIDO: Volvemos a 34 para evitar el bug de aapt2 en GitHub Actions con SDK 35
-    compileSdk 34
+    compileSdk 35  // ✅ CORREGIDO: Cambiado a 35 para satisfacer al plugin
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -43,7 +42,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.camera_ai_app"
-        minSdkVersion 24 // Requerido por camerawesome
+        minSdkVersion 24
         targetSdkVersion 34
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
