@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -55,9 +54,12 @@ class PDFExportService {
 
   static Future<String> exportMultipleImagesToPDF({
     required List<String> imagePaths,
-    String documentTitle = 'Documento Escaneado',
+    String documentTitle = 'Documento_Escaneado',
   }) async {
     final pdf = pw.Document();
+
+    // CORREGIDO: Limpiar el título para que sea un nombre de archivo válido
+    final safeTitle = documentTitle.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
 
     // Portada
     pdf.addPage(
@@ -68,7 +70,7 @@ class PDFExportService {
             child: pw.Column(
               mainAxisAlignment: pw.MainAxisAlignment.center,
               children: [
-                pw.Text(documentTitle,
+                pw.Text(documentTitle.replaceAll('_', ' '),
                     style: pw.TextStyle(fontSize: 32, fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 20),
                 pw.Text('Fecha: ${DateTime.now().toString().substring(0, 10)}',
@@ -109,7 +111,8 @@ class PDFExportService {
     }
 
     final directory = await getApplicationDocumentsDirectory();
-    final path = '${directory.path}/$documentTitle_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    // CORREGIDO: Interpolación de string correcta usando ${safeTitle}
+    final path = '${directory.path}/${safeTitle}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     await File(path).writeAsBytes(await pdf.save());
     return path;
   }
