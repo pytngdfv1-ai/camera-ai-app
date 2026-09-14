@@ -30,7 +30,8 @@ class StorageService {
     }
   }
 
-  static Future<AppleResult> saveToGallery({
+  // CORREGIDO: De 'AppleResult' a 'SaveResult'
+  static Future<SaveResult> saveToGallery({
     required Uint8List imageData,
     required CaptureMode mode,
     String? customName,
