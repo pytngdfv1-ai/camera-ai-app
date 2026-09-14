@@ -24,7 +24,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.example.camera_ai_app"
-    compileSdk flutter.compileSdkVersion
+    compileSdk 35  // <-- CORREGIDO: Forzado a 35
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -43,7 +43,7 @@ android {
     defaultConfig {
         applicationId "com.example.camera_ai_app"
         minSdkVersion 21
-        targetSdkVersion flutter.targetSdkVersion
+        targetSdkVersion 34  // <-- CORREGIDO: Actualizado a 34
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
