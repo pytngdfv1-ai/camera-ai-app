@@ -27,8 +27,14 @@ class _DocumentModeState extends State<DocumentMode> {
       final cameras = await availableCameras();
       if (cameras.isEmpty) return;
       
+      // ✅ CORRECCIÓN: Forzar cámara trasera principal
+      final targetCamera = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.back,
+        orElse: () => cameras.first,
+      );
+
       _controller = CameraController(
-        cameras.first,
+        targetCamera,
         ResolutionPreset.high,
         enableAudio: false,
       );
@@ -116,18 +122,26 @@ class _DocumentModeState extends State<DocumentMode> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
-        fit: StackFit.expand,
         children: [
-          // 1. Vista previa
-          CameraPreview(_controller!),
+          // ✅ CORRECCIÓN CRÍTICA: Center + AspectRatio
+          Center(
+            child: AspectRatio(
+              aspectRatio: _controller!.value.aspectRatio,
+              child: CameraPreview(
+                _controller!,
+                key: ValueKey(_controller),
+              ),
+            ),
+          ),
           
-          // 2. Marco de escaneo de IA (Esquinas verdes)
-          CustomPaint(
-            size: Size.infinite,
-            painter: DocumentAIPainter(),
+          // ✅ CORRECCIÓN: Usar Positioned.fill en lugar de Size.infinite para evitar bugs de renderizado
+          Positioned.fill(
+            child: CustomPaint(
+              painter: DocumentAIPainter(),
+            ),
           ),
 
-          // 3. Badge de IA
+          // Badge de IA
           Positioned(
             top: 50,
             left: 20,
@@ -149,7 +163,7 @@ class _DocumentModeState extends State<DocumentMode> {
             ),
           ),
 
-          // 4. Contador de páginas
+          // Contador de páginas
           Positioned(
             top: 50,
             right: 20,
@@ -167,7 +181,7 @@ class _DocumentModeState extends State<DocumentMode> {
             ),
           ),
 
-          // 5. Controles inferiores
+          // Controles inferiores
           Positioned(
             bottom: 50,
             left: 0,
@@ -175,7 +189,6 @@ class _DocumentModeState extends State<DocumentMode> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                // Botón de captura
                 GestureDetector(
                   onTap: _capture,
                   child: Container(
@@ -195,7 +208,6 @@ class _DocumentModeState extends State<DocumentMode> {
                   ),
                 ),
                 
-                // Botón de PDF
                 if (_scannedDocs.isNotEmpty)
                   ElevatedButton.icon(
                     onPressed: _exportPDF,
