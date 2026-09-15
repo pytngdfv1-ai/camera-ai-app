@@ -19,34 +19,33 @@ if (flutterVersionCode == null) {
 
 def flutterVersionName = localProperties.getProperty('flutter.versionName')
 if (flutterVersionName == null) {
-    flutterVersionName = '1.0'
+    flutterVersionName = '1.0.0'
 }
 
 android {
-    namespace "com.example.camera_ai_app"
-    // ✅ USAMOS 34 PARA EVITAR EL BUG DE AAPT2 CON SDK 35 EN GITHUB ACTIONS
-    compileSdk 34
-    ndkVersion flutter.ndkVersion
+    namespace "com.example.camera_ai_pro"
+    compileSdk 35 // ✅ Requerido por plugins modernos
+
+    defaultConfig {
+        applicationId "com.example.camera_ai_pro"
+        minSdk 24 // ✅ Mínimo requerido por camerawesome
+        targetSdk 34
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+    }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        // ✅ Java 17 es obligatorio para Kotlin 1.9.0 y AGP 8.1.0
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'
     }
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
-    }
-
-    defaultConfig {
-        applicationId "com.example.camera_ai_app"
-        minSdkVersion 24 // Requerido por camerawesome
-        targetSdkVersion 34
-        versionCode flutterVersionCode.toInteger()
-        versionName flutterVersionName
     }
 
     buildTypes {
@@ -61,6 +60,6 @@ flutter {
 }
 
 dependencies {
-    // ✅ FORZAMOS LA VERSIÓN DE KOTLIN STDLIB PARA EVITAR CONFLICTOS
+    // ✅ Forzar versión de stdlib para evitar conflictos de metadatos
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0"
 }
