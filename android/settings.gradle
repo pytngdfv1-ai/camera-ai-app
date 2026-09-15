@@ -18,7 +18,7 @@ pluginManagement {
 plugins {
     id "dev.flutter.flutter-plugin-loader" version "1.0.0"
     id "com.android.application" version "8.1.0" apply false
-    // ✅ FORZAMOS KOTLIN 1.9.0 PARA QUE COINCIDA CON CAMERAWESOME
+    // ✅ VERSIÓN CRÍTICA: Kotlin 1.9.0 para compatibilidad con camerawesome
     id "org.jetbrains.kotlin.android" version "1.9.0" apply false
 }
 
