@@ -6,6 +6,7 @@ import '../services/advanced_camera_service.dart';
 
 class ExpertMode extends StatefulWidget {
   const ExpertMode({super.key});
+
   @override
   State<ExpertMode> createState() => _ExpertModeState();
 }
@@ -15,7 +16,6 @@ class _ExpertModeState extends State<ExpertMode> {
   int _iso = 100;
   double _shutterSpeed = 1 / 125;
   int _wb = 5500;
-  int _currentLens = 0;
   bool _enableOIS = true;
   bool _isBusy = false;
 
@@ -26,21 +26,33 @@ class _ExpertModeState extends State<ExpertMode> {
   }
 
   Future<void> _initCamera() async {
-    final cameras = await availableCameras();
-    if (cameras.isEmpty) return;
-    _controller = CameraController(cameras.first, ResolutionPreset.max);
-    await _controller!.initialize();
-    if (mounted) setState(() {});
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) return;
+      
+      _controller = CameraController(
+        cameras.first,
+        ResolutionPreset.max,
+        enableAudio: false,
+      );
+      
+      await _controller!.initialize();
+      if (mounted) setState(() {});
+    } catch (e) {
+      print('Error iniciando cámara experta: $e');
+    }
   }
 
   Future<void> _capture() async {
-    if (_isBusy || _controller == null) return;
+    if (_isBusy || _controller == null || !_controller!.value.isInitialized) return;
     _isBusy = true;
     try {
       final xfile = await _controller!.takePicture();
       final bytes = await xfile.readAsBytes();
+      
       await StorageService.saveToGallery(imageData: bytes, mode: CaptureMode.expert);
       await StorageService.saveToPrivateStorage(imageData: bytes, mode: CaptureMode.expert);
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('✓ Foto Experta guardada'), backgroundColor: Colors.green),
@@ -62,7 +74,6 @@ class _ExpertModeState extends State<ExpertMode> {
       _iso = preset.iso;
       _shutterSpeed = preset.shutterSpeed;
       _enableOIS = preset.enableOIS;
-      if (preset.lensId != null) _currentLens = preset.lensId!;
     });
   }
 
@@ -75,113 +86,130 @@ class _ExpertModeState extends State<ExpertMode> {
   @override
   Widget build(BuildContext context) {
     if (_controller == null || !_controller!.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator());
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
     }
-    return Stack(
-      children: [
-        CameraPreview(_controller!),
-        CustomPaint(size: Size.infinite, painter: GridPainter()),
-        Positioned(
-          top: 20,
-          left: 0,
-          right: 0,
-          child: SizedBox(
-            height: 50,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: CameraPreset.presets.map((p) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ActionChip(
-                    label: Text(p.name, style: const TextStyle(fontSize: 11)),
-                    onPressed: () => _applyPreset(p),
-                    backgroundColor: Colors.orange.withOpacity(0.8),
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Vista previa
+          CameraPreview(_controller!),
+          
+          // 2. Grid de regla de tercios
+          CustomPaint(size: Size.infinite, painter: GridPainter()),
+
+          // 3. Presets
+          Positioned(
+            top: 50,
+            left: 0,
+            right: 0,
+            child: SizedBox(
+              height: 50,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: CameraPreset.presets.map((p) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ActionChip(
+                      label: Text(p.name, style: const TextStyle(fontSize: 11, color: Colors.white)),
+                      onPressed: () => _applyPreset(p),
+                      backgroundColor: Colors.orange.withOpacity(0.8),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+
+          // 4. Controles manuales
+          Positioned(
+            bottom: 120,
+            left: 20,
+            right: 20,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSlider(
+                    label: 'ISO',
+                    value: _iso.toDouble(),
+                    min: XiaomiCameraConfig.isoRange.start,
+                    max: XiaomiCameraConfig.isoRange.end,
+                    format: (v) => v.round().toString(),
+                    onChanged: (v) => setState(() => _iso = v.round()),
                   ),
-                );
-              }).toList(),
+                  _buildSlider(
+                    label: 'Shutter',
+                    value: _shutterSpeed,
+                    min: XiaomiCameraConfig.shutterRange.start,
+                    max: XiaomiCameraConfig.shutterRange.end,
+                    format: AdvancedCameraService.formatShutterSpeed,
+                    onChanged: (v) => setState(() => _shutterSpeed = v),
+                  ),
+                  _buildSlider(
+                    label: 'WB',
+                    value: _wb.toDouble(),
+                    min: 2000,
+                    max: 8000,
+                    format: (v) => '${v.round()}K',
+                    onChanged: (v) => setState(() => _wb = v.round()),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _infoChip('ISO', _iso.toString()),
+                      _infoChip('Shutter', AdvancedCameraService.formatShutterSpeed(_shutterSpeed)),
+                      _infoChip('WB', '${_wb}K'),
+                      _infoChip('OIS', _enableOIS ? 'ON' : 'OFF'),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        Positioned(
-          bottom: 180,
-          left: 20,
-          right: 20,
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.85),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildSlider(
-                  label: 'ISO',
-                  value: _iso.toDouble(),
-                  min: XiaomiCameraConfig.isoRange.start,
-                  max: XiaomiCameraConfig.isoRange.end,
-                  format: (v) => v.round().toString(),
-                  onChanged: (v) => setState(() => _iso = v.round()),
-                ),
-                _buildSlider(
-                  label: 'Shutter',
-                  value: _shutterSpeed,
-                  min: XiaomiCameraConfig.shutterRange.start,
-                  max: XiaomiCameraConfig.shutterRange.end,
-                  format: AdvancedCameraService.formatShutterSpeed,
-                  onChanged: (v) => setState(() => _shutterSpeed = v),
-                ),
-                _buildSlider(
-                  label: 'WB',
-                  value: _wb.toDouble(),
-                  min: 2000,
-                  max: 8000,
-                  format: (v) => '${v.round()}K',
-                  onChanged: (v) => setState(() => _wb = v.round()),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _infoChip('ISO', _iso.toString()),
-                    _infoChip('Shutter', AdvancedCameraService.formatShutterSpeed(_shutterSpeed)),
-                    _infoChip('WB', '${_wb}K'),
-                    _infoChip('OIS', _enableOIS ? 'ON' : 'OFF'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: 40,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: GestureDetector(
-              onTap: _capture,
-              child: Container(
-                width: 75,
-                height: 75,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 4),
-                ),
+
+          // 5. Botón de captura
+          Positioned(
+            bottom: 40,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                onTap: _capture,
                 child: Container(
-                  margin: const EdgeInsets.all(4),
+                  width: 75,
+                  height: 75,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Colors.green, Colors.blue],
+                    border: Border.all(color: Colors.white, width: 4),
+                  ),
+                  child: Container(
+                    margin: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Colors.green, Colors.blue],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
