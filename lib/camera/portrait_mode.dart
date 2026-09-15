@@ -30,14 +30,14 @@ class _PortraitModeState extends State<PortraitMode> with SingleTickerProviderSt
       final cameras = await availableCameras();
       if (cameras.isEmpty) return;
       
-      final frontCamera = cameras.firstWhere(
+      final targetCamera = cameras.firstWhere(
         (c) => c.lensDirection == CameraLensDirection.front,
         orElse: () => cameras.first,
       );
 
       _controller = CameraController(
-        frontCamera,
-        ResolutionPreset.high,
+        targetCamera,
+        ResolutionPreset.high, // Preset estable para vista previa
         enableAudio: false,
       );
       
@@ -93,23 +93,31 @@ class _PortraitModeState extends State<PortraitMode> with SingleTickerProviderSt
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
-        fit: StackFit.expand,
         children: [
-          // 1. La vista previa de la cámara (SIEMPRE AL FONDO)
-          CameraPreview(_controller!),
+          // ✅ CORRECCIÓN CRÍTICA: Center + AspectRatio garantizan que el preview se renderice
+          Center(
+            child: AspectRatio(
+              aspectRatio: _controller!.value.aspectRatio,
+              child: CameraPreview(
+                _controller!,
+                key: ValueKey(_controller), // Fuerza la reconstrucción del view nativo
+              ),
+            ),
+          ),
           
-          // 2. Overlay de IA (Marco de retrato animado)
-          AnimatedBuilder(
-            animation: _animationController,
-            builder: (context, child) {
-              return CustomPaint(
-                size: Size.infinite,
-                painter: PortraitAIPainter(progress: _animationController.value),
-              );
-            },
+          // Overlay de IA (Marco de retrato animado)
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _animationController,
+              builder: (context, child) {
+                return CustomPaint(
+                  painter: PortraitAIPainter(progress: _animationController.value),
+                );
+              },
+            ),
           ),
 
-          // 3. Badge de IA visible
+          // Badge de IA visible
           Positioned(
             top: 50,
             left: 20,
@@ -131,7 +139,7 @@ class _PortraitModeState extends State<PortraitMode> with SingleTickerProviderSt
             ),
           ),
 
-          // 4. Botón de captura
+          // Botón de captura
           Positioned(
             bottom: 50,
             left: 0,
@@ -170,7 +178,7 @@ class PortraitAIPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.6 + (progress * 0.4)) // Efecto de pulso
+      ..color = Colors.white.withOpacity(0.6 + (progress * 0.4))
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
 
