@@ -1,4 +1,4 @@
-name: Build Flutter APK
+name: Flutter Build
 
 on:
   push:
@@ -37,10 +37,10 @@ jobs:
       - name: Analyze code
         run: flutter analyze --no-fatal-infos || true
 
-      - name: Build APK (debug)
+      - name: Build Debug APK
         run: flutter build apk --debug
 
-      - name: Build APK (release)
+      - name: Build Release APK
         run: flutter build apk --release
 
       - name: Upload Debug APK
@@ -54,12 +54,3 @@ jobs:
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Create Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            build/app/outputs/flutter-apk/app-release.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
