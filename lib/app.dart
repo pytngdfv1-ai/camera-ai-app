@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'presentation/screens/camera_screen.dart';
+import 'screens/camera_screen.dart'; // ✅ CORREGIDO: Ruta simplificada
 
 class CameraAIProApp extends StatelessWidget {
   const CameraAIProApp({super.key});
