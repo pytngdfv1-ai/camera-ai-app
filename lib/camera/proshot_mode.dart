@@ -28,9 +28,15 @@ class _ProShotModeState extends State<ProShotMode> {
       final cameras = await availableCameras();
       if (cameras.isEmpty) return;
       
+      // ✅ CORRECCIÓN: Forzar cámara trasera principal
+      final targetCamera = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.back,
+        orElse: () => cameras.first,
+      );
+
       _controller = CameraController(
-        cameras.first, // Cámara trasera principal
-        ResolutionPreset.veryHigh,
+        targetCamera,
+        ResolutionPreset.high, // Estable para vista previa en Xiaomi
         enableAudio: false,
       );
       
@@ -94,12 +100,19 @@ class _ProShotModeState extends State<ProShotMode> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
-        fit: StackFit.expand,
         children: [
-          // 1. Vista previa (Fondo)
-          CameraPreview(_controller!),
+          // ✅ CORRECCIÓN CRÍTICA: Center + AspectRatio
+          Center(
+            child: AspectRatio(
+              aspectRatio: _controller!.value.aspectRatio,
+              child: CameraPreview(
+                _controller!,
+                key: ValueKey(_controller),
+              ),
+            ),
+          ),
           
-          // 2. Panel superior de IA
+          // Panel superior de IA
           Positioned(
             top: 50,
             left: 20,
@@ -143,7 +156,7 @@ class _ProShotModeState extends State<ProShotMode> {
             ),
           ),
 
-          // 3. Botón de captura
+          // Botón de captura
           Positioned(
             bottom: 50,
             left: 0,
