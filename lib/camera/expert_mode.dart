@@ -18,6 +18,9 @@ class _ExpertModeState extends State<ExpertMode> {
   int _wb = 5500;
   bool _enableOIS = true;
   bool _isBusy = false;
+  
+  // Control de visibilidad de herramientas
+  bool _showTools = false;
 
   @override
   void initState() {
@@ -97,90 +100,116 @@ class _ExpertModeState extends State<ExpertMode> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Vista previa
+          // 1. Vista previa de cámara (siempre visible)
           CameraPreview(_controller!),
           
-          // 2. Grid de regla de tercios
+          // 2. Grid de regla de tercios (siempre visible pero sutil)
           CustomPaint(size: Size.infinite, painter: GridPainter()),
 
-          // 3. Presets
+          // 3. Botón flotante para mostrar/ocultar herramientas
           Positioned(
-            top: 50,
-            left: 0,
-            right: 0,
-            child: SizedBox(
-              height: 50,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
+            top: 60,
+            right: 16,
+            child: FloatingActionButton.small(
+              heroTag: 'toggleTools',
+              onPressed: () {
+                setState(() {
+                  _showTools = !_showTools;
+                });
+              },
+              backgroundColor: Colors.black.withOpacity(0.6),
+              child: Icon(
+                _showTools ? Icons.visibility_off : Icons.tune,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ),
+
+          // 4. Controles manuales (solo visibles cuando _showTools es true)
+          if (_showTools) ...[
+            // Presets
+            Positioned(
+              top: 120,
+              left: 0,
+              right: 0,
+              child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: CameraPreset.presets.map((p) {
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ActionChip(
-                      label: Text(p.name, style: const TextStyle(fontSize: 11, color: Colors.white)),
-                      onPressed: () => _applyPreset(p),
-                      backgroundColor: Colors.orange.withOpacity(0.8),
+                child: SizedBox(
+                  height: 50,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: CameraPreset.presets.map((p) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ActionChip(
+                          label: Text(p.name, style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          onPressed: () => _applyPreset(p),
+                          backgroundColor: Colors.orange.withOpacity(0.8),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+
+            // Panel de controles
+            Positioned(
+              bottom: 160,
+              left: 20,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.green.withOpacity(0.5)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildSlider(
+                      label: 'ISO',
+                      value: _iso.toDouble(),
+                      min: XiaomiCameraConfig.isoRange.start,
+                      max: XiaomiCameraConfig.isoRange.end,
+                      format: (v) => v.round().toString(),
+                      onChanged: (v) => setState(() => _iso = v.round()),
                     ),
-                  );
-                }).toList(),
+                    _buildSlider(
+                      label: 'Shutter',
+                      value: _shutterSpeed,
+                      min: XiaomiCameraConfig.shutterRange.start,
+                      max: XiaomiCameraConfig.shutterRange.end,
+                      format: AdvancedCameraService.formatShutterSpeed,
+                      onChanged: (v) => setState(() => _shutterSpeed = v),
+                    ),
+                    _buildSlider(
+                      label: 'WB',
+                      value: _wb.toDouble(),
+                      min: 2000,
+                      max: 8000,
+                      format: (v) => '${v.round()}K',
+                      onChanged: (v) => setState(() => _wb = v.round()),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _infoChip('ISO', _iso.toString()),
+                        _infoChip('Shutter', AdvancedCameraService.formatShutterSpeed(_shutterSpeed)),
+                        _infoChip('WB', '${_wb}K'),
+                        _infoChip('OIS', _enableOIS ? 'ON' : 'OFF'),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
 
-          // 4. Controles manuales
-          Positioned(
-            bottom: 120,
-            left: 20,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.85),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildSlider(
-                    label: 'ISO',
-                    value: _iso.toDouble(),
-                    min: XiaomiCameraConfig.isoRange.start,
-                    max: XiaomiCameraConfig.isoRange.end,
-                    format: (v) => v.round().toString(),
-                    onChanged: (v) => setState(() => _iso = v.round()),
-                  ),
-                  _buildSlider(
-                    label: 'Shutter',
-                    value: _shutterSpeed,
-                    min: XiaomiCameraConfig.shutterRange.start,
-                    max: XiaomiCameraConfig.shutterRange.end,
-                    format: AdvancedCameraService.formatShutterSpeed,
-                    onChanged: (v) => setState(() => _shutterSpeed = v),
-                  ),
-                  _buildSlider(
-                    label: 'WB',
-                    value: _wb.toDouble(),
-                    min: 2000,
-                    max: 8000,
-                    format: (v) => '${v.round()}K',
-                    onChanged: (v) => setState(() => _wb = v.round()),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _infoChip('ISO', _iso.toString()),
-                      _infoChip('Shutter', AdvancedCameraService.formatShutterSpeed(_shutterSpeed)),
-                      _infoChip('WB', '${_wb}K'),
-                      _infoChip('OIS', _enableOIS ? 'ON' : 'OFF'),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // 5. Botón de captura
+          // 5. Botón de captura (siempre visible)
           Positioned(
             bottom: 40,
             left: 0,
@@ -205,6 +234,23 @@ class _ExpertModeState extends State<ExpertMode> {
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+          
+          // 6. Indicador de estado
+          Positioned(
+            top: 60,
+            left: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Modo Experto',
+                style: TextStyle(color: Colors.green.shade300, fontSize: 12),
               ),
             ),
           ),
@@ -262,7 +308,7 @@ class GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.3)
+      ..color = Colors.white.withOpacity(0.2)
       ..strokeWidth = 1;
     final w3 = size.width / 3;
     final h3 = size.height / 3;
