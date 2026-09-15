@@ -6,6 +6,7 @@ import '../services/share_service.dart';
 
 class DocumentMode extends StatefulWidget {
   const DocumentMode({super.key});
+
   @override
   State<DocumentMode> createState() => _DocumentModeState();
 }
@@ -22,29 +23,44 @@ class _DocumentModeState extends State<DocumentMode> {
   }
 
   Future<void> _initCamera() async {
-    final cameras = await availableCameras();
-    if (cameras.isEmpty) return;
-    _controller = CameraController(cameras.first, ResolutionPreset.high);
-    await _controller!.initialize();
-    if (mounted) setState(() {});
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) return;
+      
+      _controller = CameraController(
+        cameras.first,
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
+      
+      await _controller!.initialize();
+      if (mounted) setState(() {});
+    } catch (e) {
+      print('Error iniciando cámara documento: $e');
+    }
   }
 
   Future<void> _capture() async {
-    if (_isBusy || _controller == null) return;
+    if (_isBusy || _controller == null || !_controller!.value.isInitialized) return;
     _isBusy = true;
     try {
       final xfile = await _controller!.takePicture();
       final bytes = await xfile.readAsBytes();
+      
       await StorageService.saveToGallery(imageData: bytes, mode: CaptureMode.document);
       final path = await StorageService.saveToPrivateStorage(
         imageData: bytes,
         mode: CaptureMode.document,
       );
-      _scannedDocs.add(path);
+      
+      setState(() {
+        _scannedDocs.add(path);
+      });
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✓ Documento ${_scannedDocs.length} guardado'),
+            content: Text('✓ Documento ${_scannedDocs.length} escaneado con IA'),
             backgroundColor: Colors.green,
           ),
         );
@@ -70,7 +86,7 @@ class _DocumentModeState extends State<DocumentMode> {
     try {
       final pdfPath = await PDFExportService.exportMultipleImagesToPDF(
         imagePaths: _scannedDocs,
-        documentTitle: 'Documento',
+        documentTitle: 'Documento_IA',
       );
       await ShareService.sharePDF(pdfPath: pdfPath);
     } catch (e) {
@@ -91,77 +107,141 @@ class _DocumentModeState extends State<DocumentMode> {
   @override
   Widget build(BuildContext context) {
     if (_controller == null || !_controller!.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator());
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
     }
-    return Stack(
-      children: [
-        CameraPreview(_controller!),
-        CustomPaint(
-          size: Size.infinite,
-          painter: DocumentFramePainter(),
-        ),
-        Positioned(
-          top: 20,
-          right: 20,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text('Páginas: ${_scannedDocs.length}',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Vista previa
+          CameraPreview(_controller!),
+          
+          // 2. Marco de escaneo de IA (Esquinas verdes)
+          CustomPaint(
+            size: Size.infinite,
+            painter: DocumentAIPainter(),
           ),
-        ),
-        Positioned(
-          bottom: 40,
-          left: 0,
-          right: 0,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              GestureDetector(
-                onTap: _capture,
-                child: Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 4),
-                  ),
+
+          // 3. Badge de IA
+          Positioned(
+            top: 50,
+            left: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.8),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white, width: 1),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.document_scanner, color: Colors.white, size: 18),
+                  SizedBox(width: 8),
+                  Text('IA: Detección de bordes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ),
+
+          // 4. Contador de páginas
+          Positioned(
+            top: 50,
+            right: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.green, width: 1),
+              ),
+              child: Text(
+                'Páginas: ${_scannedDocs.length}',
+                style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+          ),
+
+          // 5. Controles inferiores
+          Positioned(
+            bottom: 50,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Botón de captura
+                GestureDetector(
+                  onTap: _capture,
                   child: Container(
-                    margin: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white,
+                      border: Border.all(color: Colors.white, width: 4),
+                    ),
+                    child: Container(
+                      margin: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              if (_scannedDocs.isNotEmpty)
-                ElevatedButton.icon(
-                  onPressed: _exportPDF,
-                  icon: const Icon(Icons.picture_as_pdf),
-                  label: const Text('PDF'),
-                ),
-            ],
+                
+                // Botón de PDF
+                if (_scannedDocs.isNotEmpty)
+                  ElevatedButton.icon(
+                    onPressed: _exportPDF,
+                    icon: const Icon(Icons.picture_as_pdf),
+                    label: const Text('Exportar PDF'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class DocumentFramePainter extends CustomPainter {
+class DocumentAIPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.green.withOpacity(0.8)
-      ..strokeWidth = 3
+      ..color = Colors.green
+      ..strokeWidth = 4
       ..style = PaintingStyle.stroke;
+
     final margin = 40.0;
-    final rect = Rect.fromLTWH(margin, margin, size.width - margin * 2, size.height - margin * 2);
-    canvas.drawRect(rect, paint);
+    final cornerLength = 60.0;
+
+    // Esquina superior izquierda
+    canvas.drawLine(Offset(margin, margin + cornerLength), Offset(margin, margin), paint);
+    canvas.drawLine(Offset(margin, margin), Offset(margin + cornerLength, margin), paint);
+
+    // Esquina superior derecha
+    canvas.drawLine(Offset(size.width - margin - cornerLength, margin), Offset(size.width - margin, margin), paint);
+    canvas.drawLine(Offset(size.width - margin, margin), Offset(size.width - margin, margin + cornerLength), paint);
+
+    // Esquina inferior izquierda
+    canvas.drawLine(Offset(margin, size.height - margin - cornerLength), Offset(margin, size.height - margin), paint);
+    canvas.drawLine(Offset(margin, size.height - margin), Offset(margin + cornerLength, size.height - margin), paint);
+
+    // Esquina inferior derecha
+    canvas.drawLine(Offset(size.width - margin - cornerLength, size.height - margin), Offset(size.width - margin, size.height - margin), paint);
+    canvas.drawLine(Offset(size.width - margin, size.height - margin - cornerLength), Offset(size.width - margin, size.height - margin), paint);
   }
 
   @override
